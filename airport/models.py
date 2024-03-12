@@ -1,4 +1,5 @@
 from django.conf import settings
+from django.core.exceptions import ValidationError
 from django.db import models
 
 
@@ -16,7 +17,7 @@ class Crew(models.Model):
 
 class Airport(models.Model):
     name = models.CharField(max_length=255)
-    closest_big_city = models.CharField(max_length=255, blank=True)
+    closest_big_city = models.CharField(max_length=255)
 
     def __str__(self):
         return self.name
@@ -26,6 +27,18 @@ class Route(models.Model):
     source = models.ForeignKey(Airport, related_name="departures", on_delete=models.CASCADE)
     destination = models.ForeignKey(Airport, related_name="arrivals", on_delete=models.CASCADE)
     distance = models.IntegerField()
+
+    class Meta:
+        unique_together = ("source", "destination", "distance")
+        ordering = ("distance",)
+
+    def clean(self):
+        if self.destination == self.source:
+            raise ValidationError("Source and destination names should be difference")
+
+    def save(self, *args, **kwargs):
+        self.clean()
+        return super(Route, self).save(*args, **kwargs)
 
     def __str__(self):
         return f"{self.source} -> {self.destination}"
@@ -41,11 +54,15 @@ class AirplaneType(models.Model):
 class Airplane(models.Model):
     name = models.CharField(max_length=255)
     rows = models.IntegerField()
-    seats_in_rows = models.IntegerField()
+    seats_in_row = models.IntegerField()
     airplane_type = models.ForeignKey(AirplaneType, related_name="airplanes", on_delete=models.CASCADE)
 
     def __str__(self):
         return self.name
+
+    @property
+    def capacity(self) -> int:
+        return self.rows * self.seats_in_row
 
 
 class Flight(models.Model):
