@@ -1,3 +1,5 @@
+from datetime import datetime
+
 from django.db.models import F, Count
 from rest_framework import viewsets, mixins
 from rest_framework.permissions import IsAuthenticated
@@ -51,6 +53,20 @@ class RouteViewSet(viewsets.ModelViewSet):
             return RouteListSerializer
         return self.serializer_class
 
+    def get_queryset(self):
+        queryset = self.queryset
+        source = self.request.query_params.get("source")
+        destination = self.request.query_params.get("destination")
+        if source:
+            queryset = queryset.filter(
+                source__closest_big_city__icontains=source
+            )
+        if destination:
+            queryset = queryset.filter(
+                destination__closest_big_city__icontains=destination
+            )
+        return queryset
+
 
 class AirplaneTypeViewSet(viewsets.ModelViewSet):
     queryset = AirplaneType.objects.all()
@@ -67,6 +83,15 @@ class AirplaneViewSet(viewsets.ModelViewSet):
         if self.action == "list":
             return AirplaneListSerializer
         return self.serializer_class
+
+    def get_queryset(self):
+        queryset = self.queryset
+        airplane_type = self.request.query_params.get("airplane_type")
+        if airplane_type:
+            queryset = queryset.filter(
+                airplane_type__name__icontains=airplane_type
+            )
+        return queryset
 
 
 class FlightViewSet(viewsets.ModelViewSet):
@@ -90,6 +115,24 @@ class FlightViewSet(viewsets.ModelViewSet):
         if self.action == "retrieve":
             return FlightDetailSerializer
         return self.serializer_class
+
+    def get_queryset(self):
+        queryset = self.queryset
+        date = self.request.query_params.get("date")
+        source = self.request.query_params.get("source")
+        destination = self.request.query_params.get("destination")
+        if date:
+            date = datetime.strptime(date, "%Y-%m-%d").date()
+            queryset = queryset.filter(departure_time__date=date)
+        if source:
+            queryset = queryset.filter(
+                route__source__name__icontains=source
+            )
+        if destination:
+            queryset = queryset.filter(
+                route__destination__name__icontains=destination
+            )
+        return queryset
 
 
 class OrderViewSet(
